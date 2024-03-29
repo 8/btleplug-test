@@ -34,9 +34,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
   println!("peripherals:");
   for peripheral in peripherals.iter() {
-    println!("{}", peripheral.id());
-    println!("{}", peripheral.address());
-    println!("{:?}", peripheral.characteristics());
+    // println!("{}", peripheral.id());
+    println!("address: {}", peripheral.address());
+    println!("characteristics: {:?}", peripheral.characteristics());
   }
 
   Ok(())
