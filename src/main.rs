@@ -5,14 +5,6 @@ use btleplug::platform::Adapter;
 use btleplug::{platform::Manager, platform::Peripheral};
 use tokio::time;
 
-// async fn find_hrm(peripherals: Vec<Peripheral>) -> Option<Peripheral> {
-//   for peripheral in peripherals.iter() {
-//     if let Ok(properties) = peripheral.properties().await {
-//     }
-//   }
-//   None
-// }
-
 async fn find_hrm(adapter: &Adapter) -> Option<Peripheral> {
   if let Ok(peripherials) = adapter.peripherals().await {
     for peripheral in peripherials {
