@@ -1,9 +1,10 @@
 use std::error::Error;
 use std::time::Duration;
-use btleplug::api::{CharPropFlags, Characteristic};
-use btleplug::api::{Central, Manager as _, Peripheral as _, ScanFilter, bleuuid::uuid_from_u16 };
+use btleplug::api::{CharPropFlags, Characteristic, Peripheral as _};
+use btleplug::api::{Central, Manager as _, ScanFilter, bleuuid::uuid_from_u16 };
 use btleplug::platform::Adapter;
 use btleplug::{platform::Manager, platform::Peripheral};
+use futures::StreamExt;
 use tokio::time;
 use uuid::Uuid;
 
@@ -52,6 +53,9 @@ async fn dump_peripherals(peripherals: Vec<Peripheral>) -> Result<(), Box<dyn Er
   Ok(())
 }
 
+// todo: try to use a filter to find all devices based on the heart rate service characteristic
+
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
 
@@ -87,6 +91,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     
     println!("Found device!");
 
+    let local_name = hrm.properties().await.unwrap().unwrap().local_name.unwrap();
+
     // connect
     hrm.connect().await?;
 
@@ -97,45 +103,32 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let characteristics = hrm.characteristics();
     
     // HeartRateCharacteristic: 0000180d-0000-1000-8000-00805f9b34fb
-    println!("HeartRateCharacteristic: {:?}", HEART_RATE_SERVICE_CHARACTERISTICS_UUID);
+    println!("HeartRateServiceCharacteristic: {:?}", HEART_RATE_SERVICE_CHARACTERISTICS_UUID);
     
-    // battery service            // 00002a19-0000-1000-8000-00805f9b34fb, 0000180f-0000-1000-8000-00805f9b34fb, CharPropFlags(READ | NOTIFY)
-    // device information service // 00002a24-0000-1000-8000-00805f9b34fb, 0000180a-0000-1000-8000-00805f9b34fb, CharPropFlags(READ)
-    // device information service // 00002a26-0000-1000-8000-00805f9b34fb, 0000180a-0000-1000-8000-00805f9b34fb, CharPropFlags(READ)
-    // device information service // 00002a27-0000-1000-8000-00805f9b34fb, 0000180a-0000-1000-8000-00805f9b34fb, CharPropFlags(READ)
-    // device information service // 00002a28-0000-1000-8000-00805f9b34fb, 0000180a-0000-1000-8000-00805f9b34fb, CharPropFlags(READ)
-    // device information service // 00002a29-0000-1000-8000-00805f9b34fb, 0000180a-0000-1000-8000-00805f9b34fb, CharPropFlags(READ)
-    // heart rate service         // 00002a37-0000-1000-8000-00805f9b34fb, 0000180d-0000-1000-8000-00805f9b34fb, CharPropFlags(NOTIFY)
-    // heart rate service         // 00002a38-0000-1000-8000-00805f9b34fb, 0000180d-0000-1000-8000-00805f9b34fb, CharPropFlags(READ)
-    // // 8fc3fd09-f21d-11e3-976c-0002a5d5c51b, 8fc3fd00-f21d-11e3-976c-0002a5d5c51b, CharPropFlags(NOTIFY)
-    // // 8fc3fd0a-f21d-11e3-976c-0002a5d5c51b, 8fc3fd00-f21d-11e3-976c-0002a5d5c51b, CharPropFlags(WRITE_WITHOUT_RESPONSE)
-    // // 8fc3fd15-f21d-11e3-976c-0002a5d5c51b, 8fc3fd00-f21d-11e3-976c-0002a5d5c51b, CharPropFlags(NOTIFY)
-    // // 8fc3fd16-f21d-11e3-976c-0002a5d5c51b, 8fc3fd00-f21d-11e3-976c-0002a5d5c51b, CharPropFlags(WRITE_WITHOUT_RESPONSE)
-
     // dump the characteristics of the HR
     for characteristic in characteristics.iter() {
       println!("{}, {}, {:?}", characteristic.uuid, characteristic.service_uuid, characteristic.properties);
     }
 
-    let heart_rate_service_characteristic = characteristics
-      .into_iter().find(|c|
-        c.service_uuid == HEART_RATE_SERVICE_CHARACTERISTICS_UUID
-        && c.properties & CharPropFlags::READ == CharPropFlags::READ);
+    let heart_rate_service_notify_characteristic =
+      characteristics.into_iter().find(|c|c.service_uuid == HEART_RATE_SERVICE_CHARACTERISTICS_UUID
+        && c.properties & CharPropFlags::NOTIFY == CharPropFlags::NOTIFY);
 
-    if let Some(hrc) = heart_rate_service_characteristic {
+    if let Some(hrc) = heart_rate_service_notify_characteristic {
       println!("found heart rate characteristic");
 
-      for _ in 0..20 {
-        if let Ok(result) = hrm.read(&hrc).await {
-          println!("read heart rate: {:?}", result);
-          for b in result {
-            print!("{}", b);
-            println!();
-          }
+      //  subscribe to the heart rate
+      hrm.subscribe(&hrc).await?;
 
-        }
-        time::sleep(Duration::from_millis(1000)).await;
+      let mut notification_stream = hrm.notifications().await?;
+
+      while let Some(data) = notification_stream.next().await {
+        println!(
+            "Received data from {:?} [{:?}]: {:?}",
+            local_name, data.uuid, data.value
+        );
       }
+
     } else {
       println!("didn't find heart rate characteristic");
     }
