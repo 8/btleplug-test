@@ -8,6 +8,8 @@ use futures::StreamExt;
 use tokio::time;
 use uuid::Uuid;
 
+use crate::hrm::HrmNotification;
+
 mod hrm;
 
 const HEART_RATE_SERVICE_CHARACTERISTICS_UUID: Uuid = uuid_from_u16(0x180D);
@@ -129,6 +131,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
             "Received data from {:?} [{:?}]: {:?}",
             local_name, data.uuid, data.value
         );
+
+        let hrm_notification = HrmNotification::from_bytes(data.value);
+        if let Some(hrm_notification) = hrm_notification {
+          println!(
+            "Heart Rate: {}, Sensor in Contact: {}", 
+            hrm_notification.heart_rate,
+            hrm_notification.sensor_in_contact
+          );
+        }
       }
 
     } else {
