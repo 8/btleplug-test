@@ -128,6 +128,7 @@ dependencies = [
 name = "btleplug-test"
 version = "0.1.0"
 dependencies = [
+ "bitflags 2.5.0",
  "btleplug",
  "futures",
  "tokio",

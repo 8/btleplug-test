@@ -8,6 +8,8 @@ use futures::StreamExt;
 use tokio::time;
 use uuid::Uuid;
 
+mod hrm;
+
 const HEART_RATE_SERVICE_CHARACTERISTICS_UUID: Uuid = uuid_from_u16(0x180D);
 
 async fn find_hrm(adapter: &Adapter) -> Option<Peripheral> {
