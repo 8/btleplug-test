@@ -1,20 +1,24 @@
-use bitflags::{bitflags};
+use bitflags::bitflags;
 
 bitflags! {
+  // see: HRS_SPEC_V10.pdf
   #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
   struct HrmHeaderFlags : u8 {
   
     // if this bit is set, then the value is 16Bit format, otherwise in 8Bit
-    const HeartRateValue16BitFormat = 0x01;
+    const HeartRateValue16BitFormat = 0b0000_0001;
   
     // set if the sensor is in contact with the user's body
-    const SensorContactStatus = 0x02;
+    const SensorContactStatus = 0b0000_0010;
+
+    // set if the server supports the sensor contact status
+    const SensorContactSupport = 0b0000_0100;
   
     // set if energy expenditure data is available
-    const EnergyExpenditurePresent = 0x04;
+    const EnergyExpenditurePresent = 0b0000_1000;
   
     // set if RR interval data is present
-    const RRIntervalPresent = 0x08;
+    const RRIntervalPresent = 0b0001_0000;
   }
 }
 
@@ -24,6 +28,7 @@ pub struct HrmNotification {
   
   // in kilo joule
   // pub energy_expended: Option<u32>,
+
   // pub rr_interval: Option<u32>,
 }
 
@@ -74,7 +79,7 @@ impl HrmNotification {
 
 #[cfg(test)] 
 mod test {
-    use super::HrmNotification;
+    use super::{HrmHeaderFlags, HrmNotification};
 
   #[test]
   pub fn from_bytes_6_49() {
@@ -94,7 +99,7 @@ mod test {
   }
   
   #[test]
-  pub fn  from_bytes_22_50_109_4() {
+  pub fn from_bytes_22_50_109_4() {
     // arrange
     let bytes : Vec<u8> = Vec::from([22, 50, 109, 4]);
 
@@ -107,5 +112,30 @@ mod test {
       assert!(result.sensor_in_contact);
       assert_eq!(result.heart_rate, 50);
     }
+  }
+
+  #[test]
+  pub fn from_bytes_22_55_61_4_73_1_168_1() {
+
+    // arrange
+    let bytes: Vec<u8> = Vec::from([22, 55, 61, 4, 73, 1, 168, 1]);
+
+    // act
+    let result = HrmNotification::from_bytes(bytes);
+
+    // assert
+    assert!(result.is_some());
+  }
+
+  #[test]
+  pub fn HrmHeaderFlags_from_bits() {
+    
+    // arrange
+    let byte : u8 = 22;
+
+    // act
+    let flags = HrmHeaderFlags::from_bits_retain(byte);
+
+    println!("{:?}", flags);
   }
 }
