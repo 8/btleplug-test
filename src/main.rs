@@ -1,35 +1,14 @@
 use std::error::Error;
 use std::time::Duration;
-use btleplug::api::{CharPropFlags, Characteristic, Peripheral as _};
-use btleplug::api::{Central, Manager as _, ScanFilter, bleuuid::uuid_from_u16 };
-use btleplug::platform::Adapter;
+use btleplug::api::{CharPropFlags, Peripheral as _};
+use btleplug::api::{Central, Manager as _, ScanFilter};
 use btleplug::{platform::Manager, platform::Peripheral};
-use futures::StreamExt;
+use futures::StreamExt as _;
 use tokio::time;
-use uuid::Uuid;
 
 use crate::hrm::HrmNotification;
 
 mod hrm;
-
-const HEART_RATE_SERVICE_CHARACTERISTICS_UUID: Uuid = uuid_from_u16(0x180D);
-
-async fn find_hrm(adapter: &Adapter) -> Option<Peripheral> {
-  if let Ok(peripherials) = adapter.peripherals().await {
-    for peripheral in peripherials {
-      if let Ok(properties) = peripheral.properties().await {
-        if let Some(properties) = properties {
-          if let Some(local_name) = properties.local_name {
-            if local_name.contains("HR-70EC8EA6") {
-              return Some(peripheral);
-            }
-          }
-        }
-      }
-    }
-  }
-  None
-}
 
 async fn dump_peripherals(peripherals: Vec<Peripheral>) -> Result<(), Box<dyn Error>> {
   println!("peripherals:");
@@ -91,7 +70,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
   // dump the found peripherals
 
-  if let Some(hrm) = find_hrm(&adapter).await {
+  if let Some(hrm) = hrm::find_hrm(&adapter).await {
     
     println!("Found device!");
 
@@ -107,7 +86,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let characteristics = hrm.characteristics();
     
     // HeartRateCharacteristic: 0000180d-0000-1000-8000-00805f9b34fb
-    println!("HeartRateServiceCharacteristic: {:?}", HEART_RATE_SERVICE_CHARACTERISTICS_UUID);
+    println!("HeartRateServiceCharacteristic: {:?}", hrm::HEART_RATE_SERVICE_CHARACTERISTICS_UUID);
     
     // dump the characteristics of the HR
     for characteristic in characteristics.iter() {
@@ -115,7 +94,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     }
 
     let heart_rate_service_notify_characteristic =
-      characteristics.into_iter().find(|c|c.service_uuid == HEART_RATE_SERVICE_CHARACTERISTICS_UUID
+      characteristics.into_iter().find(|c|c.service_uuid == hrm::HEART_RATE_SERVICE_CHARACTERISTICS_UUID
         && c.properties & CharPropFlags::NOTIFY == CharPropFlags::NOTIFY);
 
     if let Some(hrc) = heart_rate_service_notify_characteristic {
